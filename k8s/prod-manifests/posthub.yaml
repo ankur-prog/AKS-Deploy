@@ -1,0 +1,75 @@
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ns-posthub--env--
+  labels:
+    name: ns-posthub--env--
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: posthub--env--
+  namespace: ns-posthub--env--
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: posthub--env--
+  template:
+    metadata:
+      labels:
+        app: posthub--env--
+    spec:
+      containers:
+      - name: posthub--env--
+        image: __ImageTag__
+        env:
+        - name: MONGO_URI
+          value: mongodb://posthub-mongodb-service:27020/posthub
+        - name: JWT_KEY
+          valueFrom:
+            secretKeyRef:
+              name: jwt-secret
+              key: JWTKEY
+        - name: NATS_CLUSTER_ID
+          value: posthubcluster
+        - name: NATS_URL
+          value: nats://nats-eventhub-service:4222
+        - name: NATS_CLIENT_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "250m"
+          limits:
+            memory: "900Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /api/posthub/healthcheck
+            port: 3000
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        ports:
+        - containerPort: 3000
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: posthub-service--env--
+  namespace: ns-posthub--env--
+spec:
+  selector:
+    app: posthub--env--
+  type: ClusterIP
+  ports:
+  - name: posthub--env--
+    port: 80
+    targetPort: 3000
+    protocol: TCP
